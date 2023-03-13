@@ -1,26 +1,29 @@
 import { useState, useEffect } from "react";
 import { 
     collection, 
-    getDocs, 
+    getDocs,
+    getDoc,
     addDoc, 
     deleteDoc, 
     doc
   } from "firebase/firestore/lite";
 import {db} from "../firebase";
 import AddForm from "./AddForm";
-import { Item } from "../models/models";
+import { Item, NewItem } from "../models/models";
 
 interface props {
-uid: string | null;
-email: string | null
+uid: string | undefined;
+email: string | undefined; 
 }
 
 const ShoppingList: React.FC<props> = ({uid, email}) => {
+  ///For new items
   const [itemTitle, setItemTitle] = useState<string>("");
   const [itemStore, setStore] = useState<string>("");
   const [itemPrice, setPrice] = useState<number>(0);
   const [itemBrand, setBrand] = useState<string>("");
-  const [itemChecked, setChecked] = useState<boolean>(false);
+
+  //For regular use
   const [items, setItems] = useState<Item[]>([]); 
   const [loading, setLoading] = useState(true);
     useEffect(() => {
@@ -55,26 +58,43 @@ const ShoppingList: React.FC<props> = ({uid, email}) => {
       fetchData();
   
       
-    },[items, props.user]); // called only once
+    },[items, uid]); // called only once
   
     const handleSubmit = async (event: React.SyntheticEvent) => {
       // prevent normal submit event
       event.preventDefault();
       // add item to items, Math.random() is used to generate "unique" ID...
-      let newItem:Item =  { 
+      let newItem:NewItem =  { 
         title: itemTitle, 
         brand: itemBrand,
         price: itemPrice, 
         store: itemStore, 
         email: email, 
         user: uid, 
-        checked: false,
+        checked: false //for a new item, the checked value is always false
        };
       const docRef = await addDoc(collection(db, "items"), newItem);
       // get added doc id and set id to newItem
-      newItem.id = docRef.id;
+      const newId = docRef.id;
+      const docRefGet = doc(db, "items", newId)
+      const docSnap = await getDoc(docRefGet);
+      const newData = docSnap.data();
+      
+      const dbItem:Item = {
+        id: newId,
+        title: newData?.title,
+        brand: newData?.brand,
+        price: newData?.brand,
+        store: newData?.store,
+        email: newData?.email,
+        user: newData?.user,
+        checked: newData?.user
+      }
+               
+      
+      //newItem.id = docRef.id;
       // update states in App
-      setItems( [...items, newItem]);
+      setItems( [...items, dbItem]);
       // modify newItem text to ""
      
       clearFields();
@@ -88,12 +108,18 @@ const ShoppingList: React.FC<props> = ({uid, email}) => {
       setBrand("");
     }
   
-    const removeItem = (itemId:string) => {
+    const removeItem = (itemId: string  ) => {
       // filter/remove item with id
       deleteDoc(doc(db, "items", itemId));
       // delete from items state and update state
-      let filteredArray = items.filter(collectionItem => collectionItem.id !== item.id);
+      let filteredArray = items.filter(collectionItem => collectionItem.id !== itemId);
       setItems(filteredArray); 
+    }
+
+    const checkItem = (itemId:string) =>{
+     const checked:boolean = true;
+     console.log(checked);
+      //UPDATE DOCUMENT!
     }
   
   
@@ -107,7 +133,10 @@ const ShoppingList: React.FC<props> = ({uid, email}) => {
         }
         {items.map(item => (
           <li key={item.id}>
-            {item.title+" "} <span onClick={() => removeItem(item.id)}> x </span>
+            <div> {item.title+" "}</div>
+            <div> <span onClick={()=> checkItem(item.id)}>check</span> 
+            <span onClick={() => removeItem(item.id)}> x </span>
+            </div>
           </li>
         ))}
   
